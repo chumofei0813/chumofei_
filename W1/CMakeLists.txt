@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.10)
+project(W1)
+set(CMAKE_CXX_STANDARD 11)
+add_executable(hello helloworld.cpp)
+add_executable(greet greet.cpp)

@@ -1,5 +1,5 @@
 # 仓库简介
-这是一个RM视觉组培训的公开仓库，主要用于记录与验收培训内容。这个仓库会详细记录每一周期的培训内容、实践项目、所遇问题与详细解决方案。
+这是一个RM视觉组培训的公开仓库，主要用于记录与验收培训内容。这个仓库会详细记录每一周期的培训内容、实践项目、所遇问题与详细解决方案  
 目录：
 - [W1](#w1) Ubuntu系统安装、编程环境配置、c++基础
 - [W2](#w2) 
@@ -18,11 +18,11 @@
 - [x] 用 build/ 目录完成一次 cmake + make 编译
 ### C++学习情况及命令行小程序说明
 - 学习了c++函数、引用、简单类、vector / string / map相关语法
-- 关于程序：greet程序使用标准输出 cout 流式输出问候语到终端，通过 argc 和 argv 实现简单的命令行参数解析。若未提供参数，则输出用法提示 Usage: ./greet <name>；若提供参数，则输出 Hello, <name>!
+- 关于程序：greet程序使用标准输出 cout 流式输出问候语到终端，通过 argc 和 argv 实现简单的命令行参数解析。若未提供参数，则输出用法提示 `Usage: ./greet <name>`；若提供参数，则输出 `Hello, <name>`!
 - 编译流程：
-  1. mkdir build && cd build：在当前目录下创建一个名为 build 的子目录,进入这个 build 目录
-  2. cmake ..:读取上一级目录里的 CMakeLists.txt，然后根据它生成 Makefile 等编译文件
-  3. make：根据生成的 Makefile 执行编译，生成最终的可执行文件
+  1. `mkdir build && cd build`：在当前目录下创建一个名为 build 的子目录,进入这个 build 目录
+  2. `cmake ..`:读取上一级目录里的 CMakeLists.txt，然后根据它生成 Makefile 等编译文件
+  3. `make`：根据生成的 Makefile 执行编译，生成最终的可执行文件
 ### 提交
 - ['01_function.cpp'](W1/01_function.cpp)
 - ['02_map.cpp'](W1/02_map.cpp)

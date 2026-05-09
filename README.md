@@ -7,15 +7,15 @@
 # 周度记录
 ## W1
 ### 完成
-- [x]搭建核心操作系统Ubuntu
-- [x]装 VSCode、C/C++ 插件、build-essential、cmake、git
-- [x]在终端里确认 g++、cmake、git 可用
-- [x]写hello world cpp程序并在终端编译运行
-- [x]注册 GitHub 账号，配置本机用户名和邮箱，创建公开仓库
-- [x]学习c++函数、引用、简单类、vector / string / map相关语法
-- [x]用c++写读取命令行参数的问候程序
-- [x]配一个最小 CMakeLists.txt
-- [x]用 build/ 目录完成一次 cmake + make 编译
+- [x] 搭建核心操作系统Ubuntu
+- [x] 装 VSCode、C/C++ 插件、build-essential、cmake、git
+- [x] 在终端里确认 g++、cmake、git 可用
+- [x] 写hello world cpp程序并在终端编译运行
+- [x] 注册 GitHub 账号，配置本机用户名和邮箱，创建公开仓库
+- [x] 学习c++函数、引用、简单类、vector / string / map相关语法
+- [x] 用c++写读取命令行参数的问候程序
+- [x] 配一个最小 CMakeLists.txt
+- [x] 用 build/ 目录完成一次 cmake + make 编译
 ### C++学习情况及命令行小程序说明
 - 学习了c++函数、引用、简单类、vector / string / map相关语法
 - 关于程序：greet程序使用标准输出 cout 流式输出问候语到终端，通过 argc 和 argv 实现简单的命令行参数解析。若未提供参数，则输出用法提示 Usage: ./greet <name>；若提供参数，则输出 Hello, <name>!
@@ -34,6 +34,7 @@
 - ['helloworld运行截图'](W1/helloworld.png)
 ### 问题及解决方法
 - `git push` 时提示 `Problem with the SSL CA cert`  
+
 解决方法：执行 `git config --list --show-origin | grep http.ssl`后发现Git全局配置中残留了无效的SSL证书路径,执行 `git config --global --unset http.sslcainfo` 删除该配置，证书错误消失
 ## W2
 ## W3

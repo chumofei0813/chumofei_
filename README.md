@@ -53,7 +53,7 @@
 - ['talker/listener同时运行截图'](W2/talker%20listener同时运行截图.png)
 - ['launch启动，参数生效截图'](W2/launch启动、参数生效截图.png)
 - ['ros2baginfo截图'](W2/ros2%20bag%20info截图.png)
-- [`launch.py`](W2/talker-listener.launch.py)
+- ['launch.py'](W2/talker-listener.launch.py)
 ### 概念说明
 - `workspace`：工作空间，是一个文件夹，里面包含build，install，log，src，用于组织 ROS2 项目。
 - `package`：功能包，包含 CMakeLists.txt、package.xml 和源码。

@@ -1,0 +1,3 @@
+my_talker:
+  ros__parameters:
+    frequency_hz: 3

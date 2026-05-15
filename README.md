@@ -3,7 +3,7 @@
   
 目录：
 - [W1](#w1) Ubuntu系统安装、编程环境配置、c++基础
-- [W2](#w2) 
+- [W2](#w2) ROS2环境接入、基础通信、launch与调试
 - [W3](#w3)
 # 周度记录
 ## W1
@@ -40,20 +40,23 @@
 ## W2
 ### 完成
 - [x] ROS2环境配置
-- [x] 基础概念学习
-- [x] 基础通信
-- [x] launch与参数
-- [x] bag调试
+- [x] ROS2基础概念学习
+- [x] 创建功能包，写talker listener节点，编译运行
+- [x] 给talker加参数，参数补默认值和范围说明，跑通参数
+- [x] 参数写进YAML再由launch加载
+- [x] 加最小节点订阅话题并打印频率
+- [x] bag record/play/info
 ### 提交
+- ['training_pkg'](W2/training_pkg/)
 - ['turtlesim运行截图'](W2/turtlesim运行截图.png)
-- ['ros2topiclist/info/echo截图'](W2/ros2%20topic%20list%20info%20echo%20截图.png)
-- ['talker代码'](W2/talker.cpp)
-- ['listener代码'](W2/listener.cpp)
-- ['colconbuild截图'](W2/colcon%20build成功截图.png)
-- ['talker/listener同时运行截图'](W2/talker%20listener同时运行截图.png)
-- ['launch启动，参数生效截图'](W2/launch启动、参数生效截图.png)
-- ['ros2baginfo截图'](W2/ros2%20bag%20info截图.png)
-- ['launch.py'](W2/talker-listener.launch.py)
+- ['ros2_topic_list/info/echo截图'](W2/ros2_topic_list%20_info_echo%20截图.png)
+- ['colcon_build截图'](W2/colcon_build成功截图.png)
+- ['talker/listener同时运行截图'](W2/talker_listener同时运行截图.png)
+- ['launch启动截图'](W2/launch启动截图.png)
+- ['参数生效截图'](W2/参数生效截图.png)
+- ['bag_info截图'](W2/ros2_bag_info截图.png)
+- ['bag_play截图'](W2/ros2_bag_play截图.png)
+- ['打印频率截图'](W2/打印频率截图.png)
 ### 概念说明
 - `workspace`：工作空间，是一个文件夹，用于组织 ROS2 项目，里面包含`src`（存放功能包）、`build`（编译中间文件）、`install`等子目录。
 - `package`：功能包，包含 CMakeLists.txt、package.xml 和 源码。
@@ -66,12 +69,18 @@
 4. `回放`：执行`ros2 bag play rosbag`,同时执行`ros2 run training_pkg listener`,可以看到listener正确接受并打印了录制时发布的全部消息
 ### 提交程序说明
 本周创建了名为`ros2_ws`的工作空间，并创建了功能包`training_pkg`  
-1. `talker.cpp` 创建了一个发布者节点，向`/chatter`话题以固定频率发布递增的字符串消息，用于演示ros2话题通信  
-2. `listener.cpp` 创建了一个订阅者节点，订阅`/chatter`话题，并在终端打印接受到的消息，用于验证通信正常  
-3. `launch` 使用`ros2 launch training_pkg talker-listener.launch.py`一次性启动talker和listener两个节点  
-  同时通过launch文件为talker节点添加了两个参数：  
-  - 将talker节点名重映为`my_talker`  
-  - 设置talker节点的日志级别为`warn`,只输出警告及以上级别的日志，隐藏 RCLCPP_INFO 打印的发布信息，而listener依然能收到消息
+#### src
+- `talker.cpp` 创建了一个发布者节点，向`/chatter`话题以固定频率发布递增的字符串消息，用于演示ros2话题通信，`频率参数设置了默认值为2,取值范围1～10`,节点根据参数值调整发布频率
+- `listener.cpp` 创建了一个订阅者节点，订阅`/chatter`话题，并在终端打印接受到的消息，用于验证通信正常  
+- `freq_printer.cpp` 该节点订阅`/chatter`话题，计算实时频率并每2秒打印平均频率
+#### launch
+使用`ros2 launch training_pkg talker-listener.launch.py`一次性启动talker和listener两个节点  
+同时通过launch文件为talker节点添加了以下参数：  
+- 将talker节点名重映为`my_talker`  
+- 设置talker节点的日志级别为`warn`,只输出警告及以上级别的日志，隐藏 RCLCPP_INFO 打印的发布信息，而listener依然能收到消息
+- 通过`YAML`参数文件加载频率参数
+#### config
+`talker_params.yaml`用于设置talker节点的发布频率为3Hz，在launch中通过`parameters=[params_file]`加载
 ### 问题及解决方法
 - vscode中提示`#include错误`，无法打开源文件`rclcpp/rclcpp.hpp`  
   不影响实际编译

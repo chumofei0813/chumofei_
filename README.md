@@ -55,20 +55,24 @@
 - ['ros2baginfo截图'](W2/ros2%20bag%20info截图.png)
 - ['launch.py'](W2/talker-listener.launch.py)
 ### 概念说明
-- `workspace`：工作空间，是一个文件夹，里面包含build，install，log，src，用于组织 ROS2 项目。
-- `package`：功能包，包含 CMakeLists.txt、package.xml 和源码。
+- `workspace`：工作空间，是一个文件夹，用于组织 ROS2 项目，里面包含`src`（存放功能包）、`build`（编译中间文件）、`install`等子目录。
+- `package`：功能包，包含 CMakeLists.txt、package.xml 和 源码。
 - `node`：节点，一个可执行程序，通过话题、服务等与其他节点通信。
-- `topic`：话题，一种异步通信总线，发布者发布消息，订阅者接收消息。
+- `topic`：话题，节点间通信的通道，发布者发布消息，订阅者接收消息。
 ### bag的使用
 1. `启动talker`：执行`ros2 run training_pkg talker`
 2. `录制`：执行`ros2 bag record /chatter` ,停止后形成rosbag文件夹
-3. `查看bag信息`：执行`ros2 bag info`
+3. `查看bag信息`：执行`ros2 bag info rosbag`
 4. `回放`：执行`ros2 bag play rosbag`,同时执行`ros2 run training_pkg listener`,可以看到listener正确接受并打印了录制时发布的全部消息
-### 给talker添加参数的说明
-在launch文件中定义了两个节点（talker和listener），并添加参数：  
-- `将talker节点改名为my_talker`,ros2 node list会显示新名字
-- `设置talker的日志级别为warn`,让talker节点只输出警告及以上级别的日志，从而隐藏 RCLCPP_INFO 打印的发布信息,这样终端不会刷屏，而listener依然能收到消息。
+### 提交程序说明
+本周创建了名为`ros2_ws`的工作空间，并创建了功能包`training_pkg`  
+1. `talker.cpp` 创建了一个发布者节点，向`/chatter`话题以固定频率发布递增的字符串消息，用于演示ros2话题通信  
+2. `listener.cpp` 创建了一个订阅者节点，订阅`/chatter`话题，并在终端打印接受到的消息，用于验证通信正常  
+3. `launch` 使用`ros2 launch training_pkg talker-listener.launch.py`一次性启动talker和listener两个节点  
+  同时通过launch文件为talker节点添加了两个参数：  
+  - 将talker节点名重映为`my_talker`  
+  - 设置talker节点的日志级别为`warn`,只输出警告及以上级别的日志，隐藏 RCLCPP_INFO 打印的发布信息，而listener依然能收到消息
 ### 问题及解决方法
 - vscode中提示`#include错误`，无法打开源文件`rclcpp/rclcpp.hpp`  
-可以忽略，不影响实际编译
+  不影响实际编译
 ## W3

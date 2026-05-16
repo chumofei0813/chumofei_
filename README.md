@@ -4,7 +4,7 @@
 目录：
 - [W1](#w1) Ubuntu系统安装、编程环境配置、c++基础
 - [W2](#w2) ROS2环境接入、基础通信、launch与调试
-- [W3](#w3)
+- [W3](#w3) OpenCV装甲板识别
 # 周度记录
 ## W1
 ### 完成
@@ -17,13 +17,6 @@
 - [x] 用c++写读取命令行参数的问候程序
 - [x] 配一个最小 CMakeLists.txt
 - [x] 用 build/ 目录完成一次 cmake + make 编译
-### C++学习情况及命令行小程序说明
-- 学习了c++函数、引用、简单类、vector / string / map相关语法
-- 关于程序：greet程序使用标准输出 cout 流式输出问候语到终端，通过 argc 和 argv 实现简单的命令行参数解析。若未提供参数，则输出用法提示 `Usage: ./greet <name>`；若提供参数，则输出 `Hello, <name>!`
-- 编译流程：
-  1. `mkdir build && cd build`：在当前目录下创建一个名为 build 的子目录,进入这个 build 目录
-  2. `cmake ..`:读取上一级目录里的 CMakeLists.txt，然后根据它生成 Makefile 等编译文件
-  3. `make`：根据生成的 Makefile 执行编译，生成最终的可执行文件
 ### 提交
 - ['01_function.cpp'](W1/01_function.cpp)
 - ['02_map.cpp'](W1/02_map.cpp)
@@ -33,6 +26,14 @@
 - ['命令小程序传参截图'](W1/传参截图.png)
 - ['version截图'](W1/version.png)
 - ['helloworld运行截图'](W1/helloworld.png)
+### C++学习情况及命令行小程序说明
+- 学习了c++函数、引用、简单类、vector / string / map相关语法
+- 关于程序：greet程序使用标准输出 cout 流式输出问候语到终端，通过 argc 和 argv 实现简单的命令行参数解析。若未提供参数，则输出用法提示 `Usage: ./greet <name>`；若提供参数，则输出 `Hello, <name>!`
+- 编译流程：
+  1. `mkdir build && cd build`：在当前目录下创建一个名为 build 的子目录,进入这个 build 目录
+  2. `cmake ..`:读取上一级目录里的 CMakeLists.txt，然后根据它生成 Makefile 等编译文件
+  3. `make`：根据生成的 Makefile 执行编译，生成最终的可执行文件
+
 ### 问题及解决方法
 - `git push` 时提示 `Problem with the SSL CA cert`  
 
@@ -52,8 +53,7 @@
 - ['ros2_topic_list/info/echo截图'](W2/ros2_topic_list%20_info_echo%20截图.png)
 - ['colcon_build截图'](W2/colcon_build成功截图.png)
 - ['talker/listener同时运行截图'](W2/talker_listener同时运行截图.png)
-- ['launch启动截图'](W2/launch启动截图.png)
-- ['参数生效截图'](W2/参数生效截图.png)
+- ['launch启动_参数生效截图'](W2/launch启动_参数生效截图.png)
 - ['bag_info截图'](W2/ros2_bag_info截图.png)
 - ['bag_play截图'](W2/ros2_bag_play截图.png)
 - ['打印频率截图'](W2/打印频率截图.png)
@@ -75,9 +75,8 @@
 - `freq_printer.cpp` 该节点订阅`/chatter`话题，计算实时频率并每2秒打印平均频率
 #### launch
 使用`ros2 launch training_pkg talker-listener.launch.py`一次性启动talker和listener两个节点  
-同时通过launch文件为talker节点添加了以下参数：  
+同时通过launch文件为talker节点添加了两个参数：  
 - 将talker节点名重映为`my_talker`  
-- 设置talker节点的日志级别为`warn`,只输出警告及以上级别的日志，隐藏 RCLCPP_INFO 打印的发布信息，而listener依然能收到消息
 - 通过`YAML`参数文件加载频率参数
 #### config
 `talker_params.yaml`用于设置talker节点的发布频率为3Hz，在launch中通过`parameters=[params_file]`加载

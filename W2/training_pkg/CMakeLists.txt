@@ -19,9 +19,7 @@ ament_target_dependencies(listener rclcpp std_msgs)
 add_executable(freq_printer src/freq_printer.cpp)
 ament_target_dependencies(freq_printer rclcpp std_msgs)
 
-install(TARGETS freq_printer DESTINATION lib/${PROJECT_NAME})
-
-install(TARGETS talker listener DESTINATION lib/${PROJECT_NAME})
+install(TARGETS talker listener freq_printer DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}

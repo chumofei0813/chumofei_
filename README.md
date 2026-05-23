@@ -88,55 +88,58 @@
 - [x] 离线识别
 - [x] 连续素材验证
 - [x] 代码整理
+- [X] 失败样例分析
+
 ### 提交
+- ['red_mask'](W3/red_mask.png)
+- ['blue_mask'](W3/blue_mask.png)
+- ['灯条候选结果图'](W3/04_lightbars.png)
+- ['装甲板几何框结果图'](W3/05_final_result.png)
+- ['video_output'](W3/videos/)
 - ['color_segmentation.cpp'](W3/color_segmentation.cpp)
 - ['image_detector.cpp'](W3/single_image_detector.cpp)
 - ['video_processor.cpp'](W3/video_processor.cpp)
-- ['video_output'](W3/videos/)
-- [ArmorDetector.h](W3/ArmorDetector.h)
-- [ArmorDetector.cpp](W3/ArmorDetector.cpp)
-- [red_mask](W3/red_mask.png)
-- [blue_mask](W3/blue_mask.png)
-- [灯条候选结果图](W3/04_lightbars.png)
-- [装甲板几何框结果图](W3/05_final_result.png)
+- ['ArmorDetector.h'](W3/ArmorDetector.h)
+- ['ArmorDetector.cpp'](W3/ArmorDetector.cpp)
+
 ### 离线识别流程
-1. 图像预处理与颜色分离  
-  - 由于图片素材中灯条亮度较高，先进行 `Gamma 矫正`
-  - 将图像转换到 `HSV` 色彩空间
-  - 根据红/蓝HSV阈值生成二值掩膜  
-    红色：H(色调)位于0-10和170-180 S(饱和度)>50 V(明度)>50  
-    蓝色：H位于100-130 S>160 V>150
-  - 
-2. 灯条候选筛选
-  - 对red_mask和blue_mask分别查找轮廓
-  - 按`面积(5-1000)` `长宽比(2-20)` `角度(接近竖直)` 筛选出灯条候选
-  - 在原图上绘制所有灯条候选，保存lightbars.png
-3. 灯条配对与装甲板生成
-  - 对同色灯条候选区两两配对，要求:  
-    `角度差`<30   
-    `高度差比例`：两灯条高度差与较大高度之比<0.6  
-    `垂直偏移比例`：中心垂直距离与平均长度之比<0.8  
-    `水平距离比例`:中心水平距离与平均长度之比在0.8-5.0间
-  - 配对成功后，根据左右灯条的端点构造装甲板的四个点
-  - 检验装甲板宽高比（0.7-3.5）
-  - 在原图上绘制装甲板框并标注颜色，保存final_result.png
-4. 输出调试信息
-  - 终端打印每个装甲板的四个点坐标和颜色
+1. **图像预处理与颜色分离**  
+   - 由于图片素材中灯条亮度较高，先进行 `Gamma 矫正` (gamma=2.0)
+   - 将图像转换到 `HSV` 色彩空间
+   - 根据红/蓝HSV阈值生成二值掩膜  
+    `Red: H1=0-60 H2=170-180 S_low=0 V_low=80`  
+    `Blue: H=60-110 S_low=0 V_low=140`
+   - 过曝提取：对V通道进行二之值化，阈值220
+   - 将红色颜色mask与过曝高亮mask`取交集`得到最终red_mask,蓝色同理
+2. **灯条候选筛选**
+   - 对red_mask和blue_mask分别查找轮廓
+   - 按`面积(5-1000)` `长宽比(2-20)` `角度(接近竖直)` 筛选出灯条候选
+   - 在原图上绘制所有灯条候选，保存中间结果`lightbars.png`
+3. **灯条配对与装甲板生成**
+   - 对同色灯条候选区两两配对，要求:  
+     `角度差`<30   
+     `高度差比例`：两灯条高度差与较大高度之比<0.6  
+     `垂直偏移比例`：中心垂直距离与平均长度之比<0.8  
+     `水平距离比例`:中心水平距离与平均长度之比在0.8-5.0间
+   - 配对成功后，根据左右灯条的端点构造装甲板的四个点
+   - 检验`装甲板宽高比`（0.7-3.5）
+   - 在原图上绘制装甲板框并标注颜色，保存最终结果`final_result.png`
+4. **输出调试信息**
+   - 终端打印每个装甲板的`四个点坐标`和`颜色`
+
 ### 视频处理说明
 使用`video_processor.cpp`依次处理6个视频  
-逐帧完成装甲板检测流程，包括：  
-- 颜色分离：`getMakes()`函数
-- 灯条候选筛选：`filterLightBars()`函数
-- 灯条配对与装甲板生成：`matchLightBars()`函数
-- 结果绘制与视频输出：在原图上绘制装甲板框并标注颜色，写入输出视频  
-### 如何接入ros2
-将装甲板检测的完整流程封装为独立的 `ArmorDetector` 类（见 `ArmorDetector.h` 和 `ArmorDetector.cpp`）。
-- **类接口**：`std::vector<ArmorResult> detect(const cv::Mat& bgr_frame, DebugInfo* debug = nullptr);`
-- **输入**：BGR 图像
-- **输出**：装甲板结果列表，每个 `ArmorResult` 包含四个有序点（`points`，左上→右上→右下→左下）和颜色标签（`color`，0 红色，1 蓝色）。
-- **可选调试信息**：通过 `DebugInfo` 参数可获取红蓝 mask、候选灯条等中间结果。
+逐帧完成装甲板检测，流程与离线识别一致，最后在原图上绘制装甲板框并标注颜色，写入输出视频  
 
-在 W4 的 ROS2 节点中，只需包含 `ArmorDetector.h`，创建检测器对象，在相机图像回调中调用 `detect` 方法即可获得检测结果。随后可将结果发布到 `/armor_result` 话题，调试图像发布到 `/armor_debug_image` 话题。
+### 如何接入ros2
+将装甲板检测的完整流程封装为独立的 `ArmorDetector` 类（见 `ArmorDetector.h` 和 `ArmorDetector.cpp`）  
+当前 `ArmorDetector` 类的参数还是硬编码在代码中。为了支持从 YAML 中读取参数，需要增加参数结构体和setParams() 方法，并在节点中调用  
+在 ROS2 节点中使用时，需要：
+1. 包含 `ArmorDetector.h`，创建 `ArmorDetector` 对象。
+2. 在图像回调中，用 `cv_bridge` 将 `sensor_msgs::Image` 转为 `cv::Mat`。
+3. 调用 `detect()` 得到检测结果。
+4. 将结果转换为自定义消息发布到 `/armor_result` 话题；调试图像发布到 `/armor_debug_image`。
+
 ### 失败样例分析
 装甲板转动角度过大时漏检
 ![miss_1](W3/miss_1.png)

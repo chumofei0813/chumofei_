@@ -42,6 +42,14 @@ void getMasks(const cv::Mat& bgr, cv::Mat& red_mask, cv::Mat& blue_mask) {
     cv::Mat blue_color;
     cv::inRange(hsv, cv::Scalar(70, 120, 50), cv::Scalar(140, 255, 255), blue_color);
     
+    //形态学处理
+    cv::Mat kernel_close = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3,3));
+    cv::Mat kernel_open = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3,3));
+    cv::morphologyEx(red_color, red_color, cv::MORPH_CLOSE, kernel_close);
+    cv::morphologyEx(red_color, red_color, cv::MORPH_OPEN, kernel_open);
+    cv::morphologyEx(blue_color, blue_color, cv::MORPH_CLOSE, kernel_close);
+    cv::morphologyEx(blue_color, blue_color, cv::MORPH_OPEN, kernel_open);
+
     // 过曝提取
     cv::Mat v_mask = split_overexpose(hsv);
 
@@ -50,13 +58,6 @@ void getMasks(const cv::Mat& bgr, cv::Mat& red_mask, cv::Mat& blue_mask) {
     //red_mask = red_color;
     //blue_mask = blue_color;
 
-    //形态学处理
-    //cv::Mat kernel_close = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3,3));
-    //cv::Mat kernel_open = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3,3));
-    //cv::morphologyEx(red_mask, red_mask, cv::MORPH_CLOSE, kernel_close);
-    //cv::morphologyEx(red_mask, red_mask, cv::MORPH_OPEN, kernel_open);
-    //cv::morphologyEx(blue_mask, blue_mask, cv::MORPH_CLOSE, kernel_close);
-    //cv::morphologyEx(blue_mask, blue_mask, cv::MORPH_OPEN, kernel_open);
 }
 
 //single_image_detector中的结构体和函数

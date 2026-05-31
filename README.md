@@ -145,3 +145,25 @@
 ![miss_1](W3/miss_1.png)
 灯条亮度过高时漏检
 ![miss_2](W3/miss_2.png)
+## W4
+### 完成
+- [x] 真实相机取流与图像显示
+- [x] 真实装甲板识别节点
+- [x] 参数与launch骨架
+### 提交
+['armor_detector'](W4/armor_detector/)
+['ros2_topic_list截图'](W4/ros2_topic_list.png)
+['/armor_result截图'](W4/armor_result.png)
+['调试图像'](W4/调试图象.png)
+['launch启动截图'](W4/launch启动.png)
+### 离线流程如何接入ros2并连接相机
+- 将 W3 的离线检测流程完全封装在 `ArmorDetector 类`中
+- 海康相机获取原始图像数据
+- 在 `hik_camera_node` 中调用 SDK 读取图像帧，将原始 Bayer 格式数据转换为 OpenCV 的 cv::Mat，并进行 Bayer 解码得到 BGR 彩色图像
+- 使用 `cv_bridge` 将 OpenCV 图像转换为 ROS2 标准消息类型 `sensor_msgs/msg/Image`
+- hik_camera_node 将图像消息发布到 `/image_raw` 话题
+- `armor_detector_node` 订阅 /image_raw 话题，接收相机发布的图像消息
+- 检测节点使用 `cv_bridge` 将 sensor_msgs/msg/Image 转换回 OpenCV 的 cv::Mat 格式
+- 调用 `ArmorDetector::detect()` 得到检测结果
+- 发布结构化结果到 `/armor_result` 话题
+- 发布带框的调试图像到 `/armor_debug_image` 话题

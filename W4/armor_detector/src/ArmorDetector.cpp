@@ -93,19 +93,31 @@ vector<ArmorDetector::LightBar> ArmorDetector::extractLights(const Mat& mask, in
         if (area < params_.light_area_min || area > params_.light_area_max) continue;
 
         RotatedRect r = minAreaRect(cnt);
-        float w = r.size.width, h = r.size.height;
-        if (h < w) swap(h, w);
+        float w = r.size.width;
+        float h = r.size.height;
+        float angle = r.angle;
+        if (w > h){
+            std::swap(w, h);
+            angle += 90.0f;
+        }
         
+        // 长宽比
         float ratio = h / w;
         if (ratio < params_.light_ratio_min || ratio > params_.light_ratio_max) continue;
+        
+        // 矩形填充率
+        float rect_area = w * h;
+        float fill_ratio = area / rect_area;
+        if (fill_ratio < 0.5f) continue;
 
-        float ang = fabs(r.angle);
-        if (!(ang > params_.light_angle_min && ang < params_.light_angle_max)) continue;
+        // 角度
+        float vertical_diff = fabs(angle - 180.0f);
+        //if (vertical_diff > 30.0f)continue;
 
         LightBar lb;
         lb.rect = r;
         lb.center = r.center;
-        lb.angle = ang;
+        lb.angle = angle;
         lb.height = h;
         lb.width = w;
         lb.color = color_flag;
@@ -134,7 +146,6 @@ vector<ArmorResult> ArmorDetector::pairLights(const vector<LightBar>& lights, De
             if (h_diff > params_.pair_h_diff_max) continue;
             if (dy_ratio > params_.pair_dy_ratio_max) continue;
             if (dx_ratio < params_.pair_dx_ratio_min || dx_ratio > params_.pair_dx_ratio_max) continue;
-
             const LightBar* left = (l1.center.x < l2.center.x) ? &l1 : &l2;
             const LightBar* right = (l1.center.x < l2.center.x) ? &l2 : &l1;
 
@@ -142,10 +153,13 @@ vector<ArmorResult> ArmorDetector::pairLights(const vector<LightBar>& lights, De
             getEndpoints(left->rect, left_top, left_bottom);
             getEndpoints(right->rect, right_top, right_bottom);
 
-            float armor_width = right_top.x - left_top.x;
-            float armor_height = left_bottom.y - left_top.y;
+            // 装甲板宽高比
+            float armor_width = norm(right_top - left_top);
+            float left_height =cv::norm(left_bottom - left_top);
+            float right_height =cv::norm(right_bottom - right_top);
+            float armor_height =(left_height + right_height) / 2.0f;
             if (armor_height > 0 && (armor_width / armor_height < params_.armor_ratio_min || armor_width / armor_height > params_.armor_ratio_max)) continue;
-
+            
             ArmorResult res;
             res.points[0] = left_top;
             res.points[1] = right_top;

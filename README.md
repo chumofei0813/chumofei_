@@ -5,6 +5,8 @@
 - [W1](#w1) Ubuntu系统安装、编程环境配置、c++基础
 - [W2](#w2) ROS2环境接入、基础通信、launch与调试
 - [W3](#w3) OpenCV装甲板识别
+- [W4](#w4) 真实相机接入
+- [W5](#w5) 工程化整理、参数补全与输入源整理
 # 周度记录
 ## W1
 ### 完成
@@ -150,12 +152,14 @@
 - [x] 真实相机取流与图像显示
 - [x] 真实装甲板识别节点
 - [x] 参数与launch骨架
+
 ### 提交
-['armor_detector'](W4/armor_detector/)
-['ros2_topic_list截图'](W4/ros2_topic_list.png)
-['/armor_result截图'](W4/armor_result.png)
-['调试图像'](W4/调试图象.png)
-['launch启动截图'](W4/launch启动.png)
+- ['armor_detector'](project/armor_detector/)
+- ['ros2_topic_list截图'](W4/ros2_topic_list.png)
+- ['/armor_result截图'](W4/armor_result.png)
+- ['调试图像'](W4/调试图象.png)
+- ['launch启动截图'](W4/launch启动.png)
+
 ### 离线流程如何接入ros2并连接相机
 - 将 W3 的离线检测流程完全封装在 `ArmorDetector 类`中
 - 海康相机获取原始图像数据
@@ -167,3 +171,112 @@
 - 调用 `ArmorDetector::detect()` 得到检测结果
 - 发布结构化结果到 `/armor_result` 话题
 - 发布带框的调试图像到 `/armor_debug_image` 话题
+
+## W5
+### 完成
+- [x] 项目结构整理：检测逻辑与节点逻辑分离，目录规范化
+- [x] 参数文件补齐与launch完善
+- [x] 输入源整理
+
+### 提交
+- ['armor_detector'](project/armor_detector/)
+- ['调试图象'](W5/调试图象.png)
+
+### 检测逻辑与节点逻辑分工
+
+| 层 | 文件 | 职责 | 依赖 |
+|---|------|------|------|
+| 检测逻辑 | `ArmorDetector.cpp/h` | 输入 `cv::Mat`，输出 `ArmorResult` 数组 + 可选 `DebugInfo`。不感知 ROS | OpenCV 4.x |
+| 节点逻辑 | `armor_detector_node.cpp` | ROS 层：订阅图像、读取参数、调用检测逻辑、发布结果和调试图像 | ROS2 + cv_bridge |
+
+同一套检测逻辑（`ArmorDetector`）可被以下输入源复用：
+- ROS 话题（相机节点 / bag 回放）
+- 离线图片文件
+- 视频文件
+
+只需 `detector.detect(bgr_image, &debug_info)` 一行调用即可。
+
+### 新增参数说明
+
+- `debug_level`：控制 `/armor_debug_image` 的详细程度，（0=off, 1=装甲板框, 2=+灯条候选框+配对连线, 3=+颜色mask叠加）
+- `publish_endpoints`：为每个灯条候选框计算上下端点并发布到 `/armor_endpoints`，方便下游调试
+- 所有参数在 YAML 中添加了中文注释，说明含义、范围和调参指导
+
+### 目录结构：
+
+```
+armor_detector/
+├── bag/
+│   └── armor_test/          # 固定测试 bag
+│       ├── armor_test_0.db3
+│       └── metadata.yaml       
+├── CMakeLists.txt
+├── package.xml
+├── .gitignore
+├── config/
+│   └── armor_params.yaml          # 参数入口
+├── include/armor_detector/
+│   └── ArmorDetector.h            # 检测逻辑头文件
+├── launch/
+│   └── armor_detector.launch.py   # 启动文件（支持 camera/bag 切换）
+├── msg/
+│   └── ArmorResult.msg            # 自定义消息
+└── src/
+    ├── ArmorDetector.cpp          # 检测逻辑实现
+    ├── armor_detector_node.cpp    # 检测节点（ArmorDetectorNode 类 + main）
+    └── hik_camera_node.cpp        # 海康相机驱动节点
+```
+
+### 依赖
+ROS2 Humble、OpenCV 4.x、cv_bridge、海康 MVS SDK  
+
+### 编译
+```bash
+cd ~/ros2_ws
+colcon build --packages-select armor_detector
+source install/setup.bash
+```
+### 运行
+
+```bash
+# 相机模式
+ros2 launch armor_detector armor_detector.launch.py
+
+# Bag 回放模式
+ros2 launch armor_detector armor_detector.launch.py \
+    input_source:=bag \
+    use_sim_time:=true
+
+# 查看调试图像
+ros2 run rqt_image_view rqt_image_view
+```
+
+### 输入输出
+
+| 方向 | 话题 | 类型 | 说明 |
+|------|------|------|------|
+| 订阅 | `/image_raw` | `sensor_msgs/msg/Image` | BGR8 图像输入 |
+| 发布 | `/armor_result` | `armor_detector/msg/ArmorResult` | 检测到的装甲板，包含 `color`（0=红, 1=蓝）和 `points`（四角点坐标：左上 右上 右下 左下） |
+| 发布 | `/armor_debug_image` | `sensor_msgs/msg/Image` | 调试可视化图像，详细程度由 `debug_level` 控制 |
+| 发布 | `/armor_endpoints` | `geometry_msgs/msg/Point` | 灯条端点坐标，需 `publish_endpoints:=true` 开启 |
+
+### 参数入口
+
+所有参数集中在 `config/armor_params.yaml`，运行时通过 launch 文件加载。运行后可动态查看/修改：
+
+```bash
+ros2 param list /armor_detector_node       # 列出所有参数
+ros2 param get /armor_detector_node gamma   # 查看某个参数
+ros2 param set /armor_detector_node gamma 1.5  # 动态修改
+```
+
+参数分组见 YAML 文件中注释，主要包括：HSV 红蓝阈值、Gamma 矫正、形态学处理、灯条筛选（面积/长宽比/角度）、灯条配对（角度差/高度差/间距比）、装甲板宽高比验证。
+
+### 已知局限
+
+1. 海康 SDK 依赖：相机模式需要 MVS SDK 安装在 `/opt/MVS`
+2. 光照敏感：HSV 阈值对不同光照条件敏感，环境变化需重新调参
+3. 大角度装甲板：角度超过 `light_angle_min/max` 范围的倾斜装甲板会漏检
+4. 无帧间跟踪：每帧独立检测，无卡尔曼滤波或帧间关联
+5. 无数字识别：当前仅输出装甲板位置和颜色，W7 将接入分类模型完成数字识别
+6. 图像编码：相机节点固定输出 BGR8，若使用其他图像源需保证编码一致

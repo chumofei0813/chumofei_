@@ -8,28 +8,29 @@ struct DetectorParams {
     // Gamma矫正
     double gamma = 1.0;
     
-    // HSV阈值
+    // HSV阈值 — 红色（两个区间取并集）
     int red_h_low1 = 0, red_h_high1 = 30;
     int red_h_low2 = 170, red_h_high2 = 180;
-    int red_s_low = 50, red_v_low = 50;
+    int red_s_low = 50, red_v_low = 30;     // V通道下限，值越低对暗红越敏感
     int blue_h_low = 70, blue_h_high = 140;
     int blue_s_low = 120, blue_v_low = 50;
 
     // 颜色mask形态学（先闭后开）默认值：闭3，开1
     int morph_color_close_size = 3;
     int morph_color_open_size = 1;
-    
-    // 是否使用V通道过曝提取
-    bool use_overexpose = true;
+
+    // 是否使用V通道过曝提取（高亮区域辅助过滤）
+    bool use_overexpose = false;
     int overexpose_thresh = 220;
 
     // 最终mask形态学（先闭后开）默认值：均为1（无效果）
     int morph_final_close_size = 1;
     int morph_final_open_size = 1;
-    
-    double light_area_min = 5.0, light_area_max = 1000.0;
+
+    // 灯条筛选
+    double light_area_min = 5.0, light_area_max = 50000.0;
     double light_ratio_min = 2.0, light_ratio_max = 20.0;
-    double light_angle_min = 70.0, light_angle_max = 110.0; // 竖直方向范围
+    double light_angle_min = 70.0, light_angle_max = 110.0; // 长边与水平轴夹角范围
 
     double pair_ang_diff_max = 30.0;
     double pair_h_diff_max = 0.6;

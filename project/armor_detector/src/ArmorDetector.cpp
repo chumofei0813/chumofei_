@@ -33,7 +33,7 @@ void ArmorDetector::getMasks(const Mat& bgr, Mat& red_mask, Mat& blue_mask) cons
     Mat hsv;
     cvtColor(gamma_corrected, hsv, COLOR_BGR2HSV);
 
-    // 红色mask
+    // 红色mask（HSV红色分布在H通道两端，需要两个区间取并集）
     Mat red1, red2;
     inRange(hsv, Scalar(params_.red_h_low1, params_.red_s_low, params_.red_v_low),
             Scalar(params_.red_h_high1, 255, 255), red1);
@@ -46,7 +46,7 @@ void ArmorDetector::getMasks(const Mat& bgr, Mat& red_mask, Mat& blue_mask) cons
     inRange(hsv, Scalar(params_.blue_h_low, params_.blue_s_low, params_.blue_v_low),
             Scalar(params_.blue_h_high, 255, 255), blue_color);
 
-    // 颜色mask形态学：先闭后开
+    // 颜色mask形态学：先闭后开，消除孔洞和噪点
     Mat kernel_color_close = getStructuringElement(MORPH_RECT, Size(params_.morph_color_close_size, params_.morph_color_close_size));
     morphologyEx(red_color, red_color, MORPH_CLOSE, kernel_color_close);
     morphologyEx(blue_color, blue_color, MORPH_CLOSE, kernel_color_close);
@@ -55,7 +55,7 @@ void ArmorDetector::getMasks(const Mat& bgr, Mat& red_mask, Mat& blue_mask) cons
     morphologyEx(red_color, red_color, MORPH_OPEN, kernel_color_open);
     morphologyEx(blue_color, blue_color, MORPH_OPEN, kernel_color_open);
 
-    // 过曝提取（可选）
+    // 过曝提取（可选，利用V通道辅助过滤高亮区域）
     if (params_.use_overexpose) {
         Mat v_mask = split_overexpose(hsv);
         red_mask = red_color & v_mask;
@@ -88,7 +88,7 @@ vector<ArmorDetector::LightBar> ArmorDetector::extractLights(const Mat& mask, in
     findContours(mask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
     vector<LightBar> lights;
     for (auto& cnt : contours) {
-        
+        // 面积筛选
         double area = contourArea(cnt);
         if (area < params_.light_area_min || area > params_.light_area_max) continue;
 
@@ -96,28 +96,37 @@ vector<ArmorDetector::LightBar> ArmorDetector::extractLights(const Mat& mask, in
         float w = r.size.width;
         float h = r.size.height;
         float angle = r.angle;
-        if (w > h){
+
+        // 保证 h 是长边（高度），w 是短边（宽度）
+        if (w > h) {
             std::swap(w, h);
             angle += 90.0f;
         }
-        
-        // 长宽比
+
+        // 长宽比筛选
         float ratio = h / w;
         if (ratio < params_.light_ratio_min || ratio > params_.light_ratio_max) continue;
-        
-        // 矩形填充率
+
+        // 矩形填充率筛选
         float rect_area = w * h;
         float fill_ratio = area / rect_area;
         if (fill_ratio < 0.5f) continue;
 
-        // 角度
-        float vertical_diff = fabs(angle - 180.0f);
-        //if (vertical_diff > 30.0f)continue;
+        // 角度归一化到 [0, 180)
+        //if (angle < 0) angle += 180.0f;
+        //if (angle >= 180.0f) angle -= 180.0f;
+
+        // 使用参数筛选角度范围（长边与水平轴的夹角，竖直方向居中于90°）
+        //if (angle < params_.light_angle_min || angle > params_.light_angle_max)
+            //continue;
+
+        // 归一化到 [0, 90] 用于存储（将 >90° 映射为镜像，保证配对时角度一致性）
+        float normalized_angle = (angle > 90.0f) ? (180.0f - angle) : angle;
 
         LightBar lb;
         lb.rect = r;
         lb.center = r.center;
-        lb.angle = angle;
+        lb.angle = normalized_angle;
         lb.height = h;
         lb.width = w;
         lb.color = color_flag;
@@ -134,6 +143,7 @@ vector<ArmorResult> ArmorDetector::pairLights(const vector<LightBar>& lights, De
             const LightBar& l2 = lights[j];
             if (l1.color != l2.color) continue;
 
+            // 配对筛选条件
             float ang_diff = fabs(l1.angle - l2.angle);
             float h_diff = fabs(l1.height - l2.height) / max(l1.height, l2.height);
             float avg_len = (l1.height + l2.height) / 2.0f;
@@ -146,20 +156,23 @@ vector<ArmorResult> ArmorDetector::pairLights(const vector<LightBar>& lights, De
             if (h_diff > params_.pair_h_diff_max) continue;
             if (dy_ratio > params_.pair_dy_ratio_max) continue;
             if (dx_ratio < params_.pair_dx_ratio_min || dx_ratio > params_.pair_dx_ratio_max) continue;
+
+            // 确定左右灯条
             const LightBar* left = (l1.center.x < l2.center.x) ? &l1 : &l2;
             const LightBar* right = (l1.center.x < l2.center.x) ? &l2 : &l1;
 
+            // 提取端点
             Point2f left_top, left_bottom, right_top, right_bottom;
             getEndpoints(left->rect, left_top, left_bottom);
             getEndpoints(right->rect, right_top, right_bottom);
 
-            // 装甲板宽高比
+            // 装甲板宽高比筛选
             float armor_width = norm(right_top - left_top);
-            float left_height =cv::norm(left_bottom - left_top);
-            float right_height =cv::norm(right_bottom - right_top);
-            float armor_height =(left_height + right_height) / 2.0f;
+            float left_height = cv::norm(left_bottom - left_top);
+            float right_height = cv::norm(right_bottom - right_top);
+            float armor_height = (left_height + right_height) / 2.0f;
             if (armor_height > 0 && (armor_width / armor_height < params_.armor_ratio_min || armor_width / armor_height > params_.armor_ratio_max)) continue;
-            
+
             ArmorResult res;
             res.points[0] = left_top;
             res.points[1] = right_top;

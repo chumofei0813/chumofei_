@@ -32,11 +32,6 @@ def generate_launch_description():
     pkg_share = get_package_share_directory('armor_detector')
     config_file = os.path.join(pkg_share, 'config', 'armor_params.yaml')
 
-    # 从 install/share 反推工作空间根目录，定位包内固定测试 bag
-    # install/armor_detector/share/armor_detector -> 上溯 4 层到 ws_root
-    ws_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(pkg_share))))
-    default_bag = os.path.join(ws_root, 'src', 'armor_detector', 'bag', 'armor_test')
-
     # ---- Launch 参数声明 ----
     input_source_arg = DeclareLaunchArgument(
         'input_source', default_value='camera',
@@ -44,8 +39,8 @@ def generate_launch_description():
     )
 
     bag_path_arg = DeclareLaunchArgument(
-        'bag_path', default_value=default_bag,
-        description="当 input_source='bag' 时，rosbag 文件路径"
+        'bag_path', default_value='',
+        description="当 input_source='bag' 时，rosbag 文件路径（必填）"
     )
 
     debug_arg = DeclareLaunchArgument(

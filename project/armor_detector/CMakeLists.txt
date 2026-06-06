@@ -99,12 +99,48 @@ target_link_libraries(
   ${OpenCV_LIBS}
 )
 
+# 离线图片检测
+add_executable(
+  image_detect
+  src/image_detect.cpp
+)
+
+target_link_libraries(
+  image_detect
+  ${PROJECT_NAME}_core
+  ${OpenCV_LIBS}
+)
+
+ament_target_dependencies(
+  image_detect
+  rclcpp
+)
+
+# 离线视频检测
+add_executable(
+  video_detect
+  src/video_detect.cpp
+)
+
+target_link_libraries(
+  video_detect
+  ${PROJECT_NAME}_core
+  ${OpenCV_LIBS}
+)
+
+ament_target_dependencies(
+  video_detect
+  rclcpp
+)
+
 # 安装
 install(
   TARGETS
     ${PROJECT_NAME}_core
     armor_detector_node
     hik_camera_node
+    image_detect
+    video_detect
 
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib

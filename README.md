@@ -191,9 +191,14 @@
 
 同一套检测逻辑（`ArmorDetector`）可被以下输入源复用：
 - ROS 话题（相机节点 / bag 回放）
-- 离线图片文件
+- 离线图片文件 
+```bash
+ros2 run armor_detector image_detect /path/to/test.jpg result.jpg
+```
 - 视频文件
-
+```bash
+ros2 run armor_detector video_detect /path/to/test.mp4 output.avi
+```
 只需 `detector.detect(bgr_image, &debug_info)` 一行调用即可。
 
 ### 新增参数说明
@@ -206,10 +211,6 @@
 
 ```
 armor_detector/
-├── bag/
-│   └── armor_test/          # 固定测试 bag
-│       ├── armor_test_0.db3
-│       └── metadata.yaml       
 ├── CMakeLists.txt
 ├── package.xml
 ├── .gitignore
@@ -224,11 +225,16 @@ armor_detector/
 └── src/
     ├── ArmorDetector.cpp          # 检测逻辑实现
     ├── armor_detector_node.cpp    # 检测节点（ArmorDetectorNode 类 + main）
-    └── hik_camera_node.cpp        # 海康相机驱动节点
+    ├── hik_camera_node.cpp        # 海康相机驱动节点
+    ├── image_detect.cpp           # 离线图片检测
+    └── video_detect.cpp           # 离线视频检测
 ```
 
 ### 依赖
-ROS2 Humble、OpenCV 4.x、cv_bridge、海康 MVS SDK  
+- ROS2 Humble
+- OpenCV 4.x
+- cv_bridge
+- 海康 MVS SDK  
 
 ### 编译
 ```bash
@@ -245,6 +251,7 @@ ros2 launch armor_detector armor_detector.launch.py
 # Bag 回放模式
 ros2 launch armor_detector armor_detector.launch.py \
     input_source:=bag \
+    bag_path:=/path/to/your_bag \
     use_sim_time:=true
 
 # 查看调试图像

@@ -10,8 +10,6 @@ find_package(ament_cmake REQUIRED)
 
 find_package(rclcpp REQUIRED)
 find_package(cv_bridge REQUIRED)
-find_package(image_transport REQUIRED)
-
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)          # 用于自定义消息中的 Point
@@ -29,17 +27,44 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 # 包含头文件目录
 include_directories(
   include
-  /opt/MVS/include
 )
 
-# 海康SDK动态库路径
-link_directories(
-  /opt/MVS/lib/64
-)
+# ============================================================================
+# 海康相机节点（仅当 MVS SDK 存在时编译）
+# ============================================================================
+if(EXISTS /opt/MVS/include AND EXISTS /opt/MVS/lib/64)
+  message(STATUS "Found MVS SDK, building hik_camera_node")
+  include_directories(/opt/MVS/include)
+  link_directories(/opt/MVS/lib/64)
 
-# 创建检测器库（方便节点链接）
+  add_executable(
+    hik_camera_node
+    src/hik_camera_node.cpp
+  )
+
+  ament_target_dependencies(
+    hik_camera_node
+    rclcpp
+    sensor_msgs
+    cv_bridge
+  )
+
+  target_link_libraries(
+    hik_camera_node
+    MvCameraControl
+    ${OpenCV_LIBS}
+  )
+
+  install(
+    TARGETS hik_camera_node
+    RUNTIME DESTINATION lib/${PROJECT_NAME}
+  )
+else()
+  message(STATUS "MVS SDK not found, skipping hik_camera_node")
+endif()
 add_library(${PROJECT_NAME}_core
   src/ArmorDetector.cpp
+  src/NumberClassifier.cpp
 )
 target_include_directories(${PROJECT_NAME}_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -71,33 +96,12 @@ ament_target_dependencies(
   std_msgs
   geometry_msgs
   rosidl_default_runtime
-  image_transport
 )
 
-rosidl_target_interfaces(
-  armor_detector_node
-  ${PROJECT_NAME} 
-  "rosidl_typesupport_cpp"
+rosidl_get_typesupport_target(cpp_typesupport_target
+  ${PROJECT_NAME} "rosidl_typesupport_cpp"
 )
-
-# Hik Camera Node 
-add_executable(
-  hik_camera_node
-  src/hik_camera_node.cpp
-)
-
-ament_target_dependencies(
-  hik_camera_node
-  rclcpp
-  sensor_msgs
-  cv_bridge
-)
-
-target_link_libraries(
-  hik_camera_node
-  MvCameraControl
-  ${OpenCV_LIBS}
-)
+target_link_libraries(armor_detector_node ${cpp_typesupport_target})
 
 # 离线图片检测
 add_executable(
@@ -114,6 +118,7 @@ target_link_libraries(
 ament_target_dependencies(
   image_detect
   rclcpp
+  ament_index_cpp
 )
 
 # 离线视频检测
@@ -131,6 +136,7 @@ target_link_libraries(
 ament_target_dependencies(
   video_detect
   rclcpp
+  ament_index_cpp
 )
 
 # 安装
@@ -138,7 +144,6 @@ install(
   TARGETS
     ${PROJECT_NAME}_core
     armor_detector_node
-    hik_camera_node
     image_detect
     video_detect
 
@@ -147,7 +152,7 @@ install(
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
-install(DIRECTORY launch config
+install(DIRECTORY launch config model
   DESTINATION share/${PROJECT_NAME}
 )
 

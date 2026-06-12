@@ -5,19 +5,22 @@
 #include <geometry_msgs/msg/point.hpp>
 
 #include "armor_detector/ArmorDetector.h"
+#include "armor_detector/NumberClassifier.h"
 #include "armor_detector/msg/armor_result.hpp"
+#include "ament_index_cpp/get_package_share_directory.hpp"
 
 // ============================================================================
-// ArmorDetectorNode — 装甲板检测 ROS2 节点
+// ArmorDetectorNode — 装甲板检测 + 数字识别 ROS2 节点
 // ============================================================================
 // 职责：
 //   1. 订阅图像话题
 //   2. 从参数服务器读取检测参数，配置 ArmorDetector
 //   3. 调用检测逻辑（ArmorDetector::detect），获取装甲板结果和调试信息
-//   4. 发布检测结果和可选的调试图像
+//   4. 对每个装甲板 ROI 调用 NumberClassifier 做数字识别
+//   5. 发布检测结果（含数字类别）和可选的调试图像
 //
-// 检测逻辑（ArmorDetector）不依赖 ROS，仅接收 cv::Mat，返回 ArmorResult。
-// 同一套检测逻辑可被离线图片、视频、bag 和真实相机复用。
+// 检测逻辑（ArmorDetector）和分类逻辑（NumberClassifier）不依赖 ROS，
+// 同一套逻辑可被离线图片、视频、bag 和真实相机复用。
 // ============================================================================
 
 class ArmorDetectorNode : public rclcpp::Node {
@@ -66,8 +69,8 @@ public:
         getParam(params.light_area_max,  "light_area_max",  50000.0);
         getParam(params.light_ratio_min, "light_ratio_min", 2.0);
         getParam(params.light_ratio_max, "light_ratio_max", 20.0);
-        getParam(params.light_angle_min, "light_angle_min", 70.0);
-        getParam(params.light_angle_max, "light_angle_max", 110.0);
+        getParam(params.light_angle_max_diff, "light_angle_max_diff", 30.0);
+        getParam(params.light_fill_ratio_min, "light_fill_ratio_min", 0.5);
 
         // --- 灯条配对 ---
         getParam(params.pair_ang_diff_max, "pair_ang_diff_max", 30.0);
@@ -78,9 +81,33 @@ public:
 
         // --- 装甲板宽高比 ---
         getParam(params.armor_ratio_min, "armor_ratio_min", 0.7);
-        getParam(params.armor_ratio_max, "armor_ratio_max", 3.5);
+        getParam(params.armor_ratio_max, "armor_ratio_max", 5.0);
+
+        // --- 数字识别 ---
+        std::string default_model;
+        try {
+            default_model = ament_index_cpp::get_package_share_directory("armor_detector")
+                          + "/model/tiny_resnet.onnx";
+        } catch (...) {
+            default_model = "";
+        }
+        declare_parameter<std::string>("model_path", default_model);
+        declare_parameter<double>("classify_conf_thresh", 0.5);
+        std::string model_path = get_parameter("model_path").as_string();
+        // YAML 为空时回退到包内默认模型路径
+        if (model_path.empty()) model_path = default_model;
 
         detector_.setParams(params);
+
+        // 初始化分类器
+        if (!model_path.empty()) {
+            classifier_ = std::make_unique<NumberClassifier>(
+                model_path,
+                static_cast<float>(get_parameter("classify_conf_thresh").as_double()));
+            RCLCPP_INFO(this->get_logger(), "数字分类器已加载: %s", model_path.c_str());
+        } else {
+            RCLCPP_WARN(this->get_logger(), "未找到模型文件，跳过数字识别");
+        }
 
         // --- 订阅图像 ---
         std::string image_topic = get_parameter("image_topic").as_string();
@@ -125,14 +152,27 @@ private:
         DebugInfo debug_info;
         auto results = detector_.detect(cv_ptr->image, &debug_info);
 
+        // ---- 数字识别 ----
+        std::vector<ClassifyResult> classify_results;
+        if (classifier_) {
+            for (const auto& res : results) {
+                cv::Mat roi = NumberClassifier::extractArmorROI(cv_ptr->image, res.points);
+                classify_results.push_back(classifier_->classify(roi));
+            }
+        } else {
+            classify_results.resize(results.size());
+        }
+
         // ---- 发布装甲板结果 ----
-        for (const auto& res : results) {
+        for (size_t i = 0; i < results.size(); ++i) {
             armor_detector::msg::ArmorResult arm_msg;
-            arm_msg.color = res.color;
-            for (int i = 0; i < 4; ++i) {
+            arm_msg.color = results[i].color;
+            arm_msg.number = classify_results[i].class_id;
+            arm_msg.confidence = classify_results[i].confidence;
+            for (int j = 0; j < 4; ++j) {
                 geometry_msgs::msg::Point p;
-                p.x = res.points[i].x;
-                p.y = res.points[i].y;
+                p.x = results[i].points[j].x;
+                p.y = results[i].points[j].y;
                 p.z = 0.0;
                 arm_msg.points.push_back(p);
             }
@@ -146,17 +186,16 @@ private:
 
         // ---- 发布调试图像 ----
         if (get_parameter("debug").as_bool()) {
-            publishDebugImage(cv_ptr->image, results, debug_info);
+            publishDebugImage(cv_ptr->image, results, classify_results, debug_info);
         }
     }
 
     // ---- 发布灯条端点 ----
     void publishEndpoints(const DebugInfo& debug) {
-        auto publish_rect_endpoints = [this](const std::vector<cv::RotatedRect>& rects, int /* color */) {
+        auto publish_rect_endpoints = [this](const std::vector<cv::RotatedRect>& rects) {
             for (const auto& r : rects) {
                 cv::Point2f pts[4];
                 r.points(pts);
-                // 按 y 排序，取上下两个中点
                 std::sort(pts, pts+4, [](const cv::Point2f& a, const cv::Point2f& b) { return a.y < b.y; });
                 cv::Point2f top = (pts[0] + pts[1]) * 0.5f;
                 cv::Point2f bottom = (pts[2] + pts[3]) * 0.5f;
@@ -170,13 +209,14 @@ private:
                 endpoints_pub_->publish(make_point(bottom.x, bottom.y));
             }
         };
-        publish_rect_endpoints(debug.red_light_candidates, 0);
-        publish_rect_endpoints(debug.blue_light_candidates, 1);
+        publish_rect_endpoints(debug.red_light_candidates);
+        publish_rect_endpoints(debug.blue_light_candidates);
     }
 
     // ---- 发布调试图像 ----
     void publishDebugImage(const cv::Mat& frame,
                            const std::vector<ArmorResult>& results,
+                           const std::vector<ClassifyResult>& classify_results,
                            const DebugInfo& debug) {
         int level = get_parameter("debug_level").as_int();
         cv::Mat debug_img = frame.clone();
@@ -213,11 +253,21 @@ private:
 
         // Level 1+: 绘制装甲板框和标签
         if (level >= 1) {
-            for (const auto& res : results) {
+            for (size_t i = 0; i < results.size(); ++i) {
+                const auto& res = results[i];
                 cv::Scalar color = (res.color == 0) ? cv::Scalar(0, 0, 255) : cv::Scalar(255, 0, 0);
-                for (int i = 0; i < 4; ++i)
-                    cv::line(debug_img, res.points[i], res.points[(i+1)%4], color, 2);
-                cv::putText(debug_img, (res.color == 0 ? "RED" : "BLUE"),
+
+                for (int j = 0; j < 4; ++j)
+                    cv::line(debug_img, res.points[j], res.points[(j+1)%4], color, 2);
+
+                // 标签：颜色_数字类别，例如 RED_3, BLUE_sentry
+                std::string label;
+                if (i < classify_results.size() && classify_results[i].class_id >= 0) {
+                    label = (res.color == 0 ? "RED_" : "BLUE_") + classify_results[i].class_name;
+                } else {
+                    label = (res.color == 0 ? "RED" : "BLUE");
+                }
+                cv::putText(debug_img, label,
                             res.points[0], cv::FONT_HERSHEY_SIMPLEX, 0.5,
                             cv::Scalar(255, 255, 255), 1);
             }
@@ -242,6 +292,7 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr debug_image_pub_;
     rclcpp::Publisher<geometry_msgs::msg::Point>::SharedPtr endpoints_pub_;
     ArmorDetector detector_;
+    std::unique_ptr<NumberClassifier> classifier_;
 };
 
 // ============================================================================

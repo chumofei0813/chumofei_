@@ -1,5 +1,6 @@
 #include "armor_detector/ArmorDetector.h"
 #include <algorithm>
+#include <fstream>
 
 using namespace cv;
 using namespace std;
@@ -100,7 +101,6 @@ vector<ArmorDetector::LightBar> ArmorDetector::extractLights(const Mat& mask, in
         // 保证 h 是长边（高度），w 是短边（宽度）
         if (w > h) {
             std::swap(w, h);
-            angle += 90.0f;
         }
 
         // 长宽比筛选
@@ -110,23 +110,34 @@ vector<ArmorDetector::LightBar> ArmorDetector::extractLights(const Mat& mask, in
         // 矩形填充率筛选
         float rect_area = w * h;
         float fill_ratio = area / rect_area;
-        if (fill_ratio < 0.5f) continue;
+        if (fill_ratio < params_.light_fill_ratio_min) continue;
 
-        // 角度归一化到 [0, 180)
-        //if (angle < 0) angle += 180.0f;
-        //if (angle >= 180.0f) angle -= 180.0f;
+        // 角度归一化（配对依赖，不能注释）
+        if (r.size.width < r.size.height)
+        {
+            angle += 90.0f;
+        }
 
-        // 使用参数筛选角度范围（长边与水平轴的夹角，竖直方向居中于90°）
-        //if (angle < params_.light_angle_min || angle > params_.light_angle_max)
-            //continue;
+        if (angle < 0)
+        {
+            angle += 180.0f;
+        }
 
-        // 归一化到 [0, 90] 用于存储（将 >90° 映射为镜像，保证配对时角度一致性）
-        float normalized_angle = (angle > 90.0f) ? (180.0f - angle) : angle;
+        if (angle > 90.0f)
+        {
+            angle = 180.0f - angle;
+        }
+
+        // 角度筛选（过滤非竖直灯条，可单独开关）
+        if (std::abs(angle - 90.0f) > params_.light_angle_max_diff)
+        {
+            continue;
+        }
 
         LightBar lb;
         lb.rect = r;
         lb.center = r.center;
-        lb.angle = normalized_angle;
+        lb.angle = angle;
         lb.height = h;
         lb.width = w;
         lb.color = color_flag;
@@ -214,4 +225,98 @@ vector<ArmorResult> ArmorDetector::detect(const Mat& bgr_frame, DebugInfo* debug
     }
 
     return pairLights(all_lights, debug);
+}
+
+bool loadParamsFromYAML(const std::string& yaml_path, DetectorParams& params) {
+    std::ifstream file(yaml_path);
+    if (!file.is_open()) return false;
+
+    std::string line;
+    bool in_params = false;
+
+    while (std::getline(file, line)) {
+        // 去除首尾空白
+        size_t start = line.find_first_not_of(" \t\r");
+        if (start == std::string::npos) continue;  // 空行
+        if (line[start] == '#') continue;           // 注释
+
+        // 等待进入 ros__parameters 区块
+        if (!in_params) {
+            if (line.find("ros__parameters") != std::string::npos)
+                in_params = true;
+            continue;
+        }
+
+        // 遇到下一级缩进的 key（如缩进减少），表示离开了 ros__parameters 区块
+        // ROS2 YAML 中 ros__parameters 下的参数至少缩进4格
+        if (start < 4) break;
+
+        // 解析 key: value
+        size_t colon = line.find(':');
+        if (colon == std::string::npos) continue;
+
+        std::string key = line.substr(start, colon - start);
+        // 去除 key 尾部空白
+        while (!key.empty() && key.back() == ' ') key.pop_back();
+
+        std::string val_str = line.substr(colon + 1);
+        // 去除 value 首尾空白、注释
+        size_t val_start = val_str.find_first_not_of(" \t");
+        if (val_start == std::string::npos) continue;
+        size_t val_end = val_str.find_first_of(" \t#\r", val_start);
+        val_str = val_str.substr(val_start, val_end - val_start);
+
+        if (val_str.empty()) continue;
+
+        // 解析数值
+        try {
+            // 先处理布尔值（std::stod 不能解析 "true"/"false"）
+            bool vb;
+            if (val_str == "true" || val_str == "True") vb = true;
+            else if (val_str == "false" || val_str == "False") vb = false;
+            else vb = (std::stod(val_str) != 0.0);
+
+            double v = vb ? 1.0 : 0.0;
+            if (val_str != "true" && val_str != "True" && val_str != "false" && val_str != "False")
+                v = std::stod(val_str);
+            int vi = static_cast<int>(v);
+
+            if (key == "gamma") params.gamma = v;
+            else if (key == "red_h_low1") params.red_h_low1 = vi;
+            else if (key == "red_h_high1") params.red_h_high1 = vi;
+            else if (key == "red_h_low2") params.red_h_low2 = vi;
+            else if (key == "red_h_high2") params.red_h_high2 = vi;
+            else if (key == "red_s_low") params.red_s_low = vi;
+            else if (key == "red_v_low") params.red_v_low = vi;
+            else if (key == "blue_h_low") params.blue_h_low = vi;
+            else if (key == "blue_h_high") params.blue_h_high = vi;
+            else if (key == "blue_s_low") params.blue_s_low = vi;
+            else if (key == "blue_v_low") params.blue_v_low = vi;
+            else if (key == "morph_color_close_size") params.morph_color_close_size = vi;
+            else if (key == "morph_color_open_size") params.morph_color_open_size = vi;
+            else if (key == "use_overexpose") params.use_overexpose = vb;
+            else if (key == "overexpose_thresh") params.overexpose_thresh = vi;
+            else if (key == "morph_final_close_size") params.morph_final_close_size = vi;
+            else if (key == "morph_final_open_size") params.morph_final_open_size = vi;
+            else if (key == "light_area_min") params.light_area_min = v;
+            else if (key == "light_area_max") params.light_area_max = v;
+            else if (key == "light_ratio_min") params.light_ratio_min = v;
+            else if (key == "light_ratio_max") params.light_ratio_max = v;
+            else if (key == "light_angle_max_diff") params.light_angle_max_diff = v;
+            else if (key == "light_fill_ratio_min") params.light_fill_ratio_min = v;
+            else if (key == "pair_ang_diff_max") params.pair_ang_diff_max = v;
+            else if (key == "pair_h_diff_max") params.pair_h_diff_max = v;
+            else if (key == "pair_dy_ratio_max") params.pair_dy_ratio_max = v;
+            else if (key == "pair_dx_ratio_min") params.pair_dx_ratio_min = v;
+            else if (key == "pair_dx_ratio_max") params.pair_dx_ratio_max = v;
+            else if (key == "armor_ratio_min") params.armor_ratio_min = v;
+            else if (key == "armor_ratio_max") params.armor_ratio_max = v;
+            else if (key == "model_path") params.classifier_model_path = val_str;
+            else if (key == "classify_conf_thresh") params.classifier_conf_thresh = v;
+        } catch (...) {
+            continue;  // 解析失败，跳过该行
+        }
+    }
+
+    return true;
 }

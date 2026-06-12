@@ -30,14 +30,18 @@ struct DetectorParams {
     // 灯条筛选
     double light_area_min = 5.0, light_area_max = 50000.0;
     double light_ratio_min = 2.0, light_ratio_max = 20.0;
-    double light_angle_min = 70.0, light_angle_max = 110.0; // 长边与水平轴夹角范围
-
+    double light_angle_max_diff = 30.0;
+    double light_fill_ratio_min = 0.5; // 矩形填充率下限（面积/外接矩形面积）
     double pair_ang_diff_max = 30.0;
     double pair_h_diff_max = 0.6;
     double pair_dy_ratio_max = 0.8;
     double pair_dx_ratio_min = 0.8, pair_dx_ratio_max = 5.0;
 
-    double armor_ratio_min = 0.7, armor_ratio_max = 3.5;
+    double armor_ratio_min = 0.7, armor_ratio_max = 5.0;
+
+    // 数字识别
+    std::string classifier_model_path;  // 空串 = 使用默认路径
+    double classifier_conf_thresh = 0.5;
 };
 
 struct ArmorResult {
@@ -52,6 +56,8 @@ struct DebugInfo {
     std::vector<cv::RotatedRect> blue_light_candidates;
     std::vector<std::pair<cv::RotatedRect, cv::RotatedRect>> paired_lights;
 };
+
+bool loadParamsFromYAML(const std::string& yaml_path, DetectorParams& params);
 
 class ArmorDetector {
 public:

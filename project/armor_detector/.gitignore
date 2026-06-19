@@ -5,4 +5,3 @@ log/
 *.so
 *.pyc
 __pycache__/
-bag/

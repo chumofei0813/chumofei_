@@ -56,12 +56,12 @@ armor_detector_node:
 
     # --- 颜色 mask 形态学（先闭后开）---
     # 闭运算填充孔洞，开运算去除噪点
-    morph_color_close_size: 3       # 颜色 mask 闭运算核大小（奇数，越大填充越强）
+    morph_color_close_size: 7       # 颜色 mask 闭运算核大小（奇数，越大填充越强）
     morph_color_open_size: 1        # 颜色 mask 开运算核大小（奇数，越大去噪越强）
 
     # --- 过曝提取（利用 V 通道辅助过滤高亮区域）---
-    use_overexpose: false           # 是否启用过曝提取
-    overexpose_thresh: 220          # V 通道阈值（0-255），高于此值视为过曝
+    use_overexpose: true           # 是否启用过曝提取
+    overexpose_thresh: 200          # V 通道阈值（0-255），高于此值视为过曝
 
     # --- 最终 mask 形态学（先闭后开）---
     morph_final_close_size: 1       # 最终 mask 闭运算核大小（1 = 不处理）
@@ -97,3 +97,5 @@ armor_detector_node:
     # ========================================================================
     model_path: ""                  # ONNX 模型文件路径，留空则使用包内默认路径
     classify_conf_thresh: 0.5       # 分类置信度阈值（0-1），低于此值结果不可靠
+    classify_vertical_extend_ratio: 0.6  # ROI 竖直方向外扩比例（0=不外扩，越大裁剪范围越大）
+    classify_side_trim_ratio: 0.1      # ROI 水平方向灯条裁剪比例（0=不裁，越大裁越多）

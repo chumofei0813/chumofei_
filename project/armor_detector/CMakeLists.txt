@@ -24,22 +24,23 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   DEPENDENCIES geometry_msgs
 )
 
-# 包含头文件目录
-include_directories(
-  include
-)
-
 # ============================================================================
 # 海康相机节点（仅当 MVS SDK 存在时编译）
 # ============================================================================
 if(EXISTS /opt/MVS/include AND EXISTS /opt/MVS/lib/64)
   message(STATUS "Found MVS SDK, building hik_camera_node")
-  include_directories(/opt/MVS/include)
-  link_directories(/opt/MVS/lib/64)
 
   add_executable(
     hik_camera_node
     src/hik_camera_node.cpp
+  )
+
+  target_include_directories(hik_camera_node PRIVATE
+    /opt/MVS/include
+  )
+
+  target_link_directories(hik_camera_node PRIVATE
+    /opt/MVS/lib/64
   )
 
   ament_target_dependencies(
@@ -83,8 +84,8 @@ add_executable(
 )
 
 target_link_libraries(
-  armor_detector_node 
-  ${PROJECT_NAME}_core 
+  armor_detector_node
+  ${PROJECT_NAME}_core
   ${OpenCV_LIBS}
 )
 
@@ -165,14 +166,14 @@ install(DIRECTORY msg
 )
 
 if(BUILD_TESTING)
+    set(ament_cmake_copyright_FOUND TRUE)
+    set(ament_cmake_cpplint_FOUND TRUE)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
   # comment the line when a copyright and license is added to all source files
-  set(ament_cmake_copyright_FOUND TRUE)
   # the following line skips cpplint (only works in a git repo)
   # comment the line when this package is in a git repo and when
   # a copyright and license is added to all source files
-  set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
 

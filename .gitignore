@@ -1,0 +1,22 @@
+# ROS2 / colcon 编译产物
+build/
+install/
+log/
+
+# 编辑器 / 系统
+.vscode/
+*.swp
+*~
+.DS_Store
+
+# rosbag 数据（体积大，不入库）
+**/bag/
+*.db3
+*.mcap
+
+# 培训练习包（不纳入本考核仓库）
+src/training_pkg/
+
+# Python 缓存
+__pycache__/
+*.pyc

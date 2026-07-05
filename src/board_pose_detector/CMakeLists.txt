@@ -16,6 +16,7 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 # ============================================================================
 # 检测/解算核心库(不依赖 ROS，仅 OpenCV)
@@ -31,7 +32,7 @@ target_link_libraries(board_detector_core ${OpenCV_LIBS})
 # 位姿解算节点
 # ============================================================================
 add_executable(board_pose_node src/board_pose_node.cpp)
-target_link_libraries(board_pose_node board_detector_core ${OpenCV_LIBS})
+target_link_libraries(board_pose_node board_detector_core ${OpenCV_LIBS} yaml-cpp)
 ament_target_dependencies(board_pose_node
   rclcpp cv_bridge sensor_msgs std_msgs geometry_msgs tf2 tf2_ros tf2_geometry_msgs)
 install(TARGETS board_pose_node RUNTIME DESTINATION lib/${PROJECT_NAME})
@@ -69,8 +70,8 @@ else()
   message(STATUS "MindVision SDK not found, skipping mindvision_camera_node")
 endif()
 
-# 安装 launch / config（后续添加内容时目录已就位）
-install(DIRECTORY launch config
+# 安装 launch / config / target_board（后续添加内容时目录已就位）
+install(DIRECTORY launch config target_board
   DESTINATION share/${PROJECT_NAME}
   OPTIONAL
 )

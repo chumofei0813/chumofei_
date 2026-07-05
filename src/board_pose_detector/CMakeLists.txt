@@ -11,7 +11,30 @@ find_package(rclcpp REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
+
+# ============================================================================
+# 检测/解算核心库(不依赖 ROS，仅 OpenCV)
+# ============================================================================
+add_library(board_detector_core src/BoardDetector.cpp)
+target_include_directories(board_detector_core PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+target_link_libraries(board_detector_core ${OpenCV_LIBS})
+
+# ============================================================================
+# 位姿解算节点
+# ============================================================================
+add_executable(board_pose_node src/board_pose_node.cpp)
+target_link_libraries(board_pose_node board_detector_core ${OpenCV_LIBS})
+ament_target_dependencies(board_pose_node
+  rclcpp cv_bridge sensor_msgs std_msgs geometry_msgs tf2 tf2_ros tf2_geometry_msgs)
+install(TARGETS board_pose_node RUNTIME DESTINATION lib/${PROJECT_NAME})
 
 # ============================================================================
 # 海康相机节点（仅当 MVS SDK 存在时编译）
@@ -50,6 +73,9 @@ endif()
 install(DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}
   OPTIONAL
+)
+install(DIRECTORY include/
+  DESTINATION include
 )
 
 if(BUILD_TESTING)

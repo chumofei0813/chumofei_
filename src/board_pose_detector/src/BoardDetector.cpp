@@ -15,7 +15,9 @@ void BoardDetector::setCameraInfo(
 }
 
 // 3D 物体点: 圆心为原点(0,0,0)，板平面 Z=0，X 右 Y 下。
-// 顺序必须与 imagePoints 一致: 左上, 右上, 右下, 左下, 圆心。
+// 只用方框4角，顺序: 左上,右上,右下,左下。
+// 圆心在正中≈4角形心，对位置无新信息但其像素误差会污染姿态解，故不参与 PnP，
+// 仅用于确认是目标板 + 原点可视化。
 std::vector<cv::Point3f> BoardDetector::buildObjectPoints() const
 {
   const float h = static_cast<float>(params_.outer_size / 2.0);  // 半边长
@@ -23,8 +25,7 @@ std::vector<cv::Point3f> BoardDetector::buildObjectPoints() const
     {-h, -h, 0.f},   // 左上
     { h, -h, 0.f},   // 右上
     { h,  h, 0.f},   // 右下
-    {-h,  h, 0.f},   // 左下
-    { 0.f, 0.f, 0.f} // 圆心
+    {-h,  h, 0.f}    // 左下
   };
 }
 
@@ -185,8 +186,7 @@ BoardResult BoardDetector::detect(const cv::Mat & bgr, cv::Mat * debug)
   }
 
   std::vector<cv::Point3f> obj_pts = buildObjectPoints();
-  std::vector<cv::Point2f> img_pts = quad;
-  img_pts.push_back(center);
+  std::vector<cv::Point2f> img_pts = quad;  // 仅方框4角，不含圆心
 
   cv::Vec3d rvec, tvec;
   bool ok = cv::solvePnP(

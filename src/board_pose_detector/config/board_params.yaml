@@ -15,6 +15,11 @@
     binary_thresh: 80        # use_otsu=false 时的固定灰度阈值
     min_quad_squareness: 0.6 # 方框方正度下限(0~1，越大越严格)
 
+    # ---- 抗误检/抗跳变 ----
+    circle_ratio_min: 0.22   # 圆直径/方框边长 下限(真值≈0.33)
+    circle_ratio_max: 0.48   # 圆直径/方框边长 上限
+    max_reproj_error: 6.0    # 4角重投影误差上限(像素)，超过则本帧不输出位姿
+
     # ---- 坐标系 & 输出 ----
     camera_frame: "camera_optical_frame"
     board_frame: "target_board"

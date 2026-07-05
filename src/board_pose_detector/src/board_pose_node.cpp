@@ -17,6 +17,8 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 
+#include <yaml-cpp/yaml.h>
+
 #include "board_pose_detector/BoardDetector.h"
 
 using std::placeholders::_1;
@@ -35,6 +37,9 @@ public:
     p.binary_thresh = declare_parameter<int>("binary_thresh", 80);
     p.use_otsu = declare_parameter<bool>("use_otsu", true);
     p.min_quad_squareness = declare_parameter<double>("min_quad_squareness", 0.6);
+    p.circle_ratio_min = declare_parameter<double>("circle_ratio_min", 0.22);
+    p.circle_ratio_max = declare_parameter<double>("circle_ratio_max", 0.48);
+    p.max_reproj_error = declare_parameter<double>("max_reproj_error", 6.0);
     detector_.setParams(p);
 
     // ---- 帧 & 话题 ----
@@ -79,28 +84,29 @@ private:
   bool loadCameraInfo(const std::string & path)
   {
     if (path.empty()) {return false;}
-    cv::FileStorage fs(path, cv::FileStorage::READ);
-    if (!fs.isOpened()) {
-      RCLCPP_ERROR(get_logger(), "无法打开内参文件: %s", path.c_str());
+    // 用 yaml-cpp 解析标准 camera_info YAML
+    // (OpenCV FileStorage 不兼容 ROS 风格 YAML，见 armor_detector W6 记录)
+    YAML::Node root;
+    try {
+      root = YAML::LoadFile(path);
+    } catch (const std::exception & e) {
+      RCLCPP_ERROR(get_logger(), "无法解析内参文件 %s: %s", path.c_str(), e.what());
       return false;
     }
-    cv::Mat K, D;
-    // 兼容 camera_info YAML: camera_matrix / distortion_coefficients 带 rows/cols/data
-    cv::FileNode cm = fs["camera_matrix"];
-    cv::FileNode dc = fs["distortion_coefficients"];
-    if (cm.empty() || dc.empty()) {
+    if (!root["camera_matrix"] || !root["distortion_coefficients"]) {
       RCLCPP_ERROR(get_logger(), "内参文件缺少 camera_matrix 或 distortion_coefficients");
       return false;
     }
-    std::vector<double> cm_data, dc_data;
-    cm["data"] >> cm_data;
-    dc["data"] >> dc_data;
+    std::vector<double> cm_data =
+      root["camera_matrix"]["data"].as<std::vector<double>>();
+    std::vector<double> dc_data =
+      root["distortion_coefficients"]["data"].as<std::vector<double>>();
     if (cm_data.size() != 9) {
       RCLCPP_ERROR(get_logger(), "camera_matrix data 长度应为9，实际 %zu", cm_data.size());
       return false;
     }
-    K = cv::Mat(3, 3, CV_64F, cm_data.data()).clone();
-    D = cv::Mat(1, static_cast<int>(dc_data.size()), CV_64F, dc_data.data()).clone();
+    cv::Mat K = cv::Mat(3, 3, CV_64F, cm_data.data()).clone();
+    cv::Mat D = cv::Mat(1, static_cast<int>(dc_data.size()), CV_64F, dc_data.data()).clone();
     detector_.setCameraInfo(K, D);
     RCLCPP_INFO(
       get_logger(), "已加载内参: fx=%.1f fy=%.1f cx=%.1f cy=%.1f",

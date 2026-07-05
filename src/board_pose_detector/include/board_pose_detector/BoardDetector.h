@@ -35,6 +35,16 @@ struct BoardParams
 
   // ---- 圆筛选 ----
   double circle_min_circularity = 0.7;  // 圆度下限 4πA/P²
+
+  // ---- 圆/方框尺寸比例校验(抗误检) ----
+  // 真目标板: 圆直径/外框边长 = 50/150 ≈ 0.333。检测到的圆直径与方框边长之比
+  // 需落在 [circle_ratio_min, circle_ratio_max]，否则判为误检(如背景黑方块)。
+  double circle_ratio_min = 0.22;  // 圆直径/方框边长 下限
+  double circle_ratio_max = 0.48;  // 圆直径/方框边长 上限
+
+  // ---- 重投影误差筛选(抗跳解/误检) ----
+  // solvePnP 后将4角3D点投影回图像，与实测角点的平均像素误差超过此值则丢弃该帧。
+  double max_reproj_error = 6.0;   // 最大平均重投影误差(像素)
 };
 
 // 单次检测的结果
@@ -78,9 +88,14 @@ private:
   bool findBoardQuad(const cv::Mat & binary, std::vector<cv::Point2f> & quad,
     double img_area);
 
-  // 在方框内部区域找圆心
+  // 在方框内部区域找圆心，同时输出圆的等效半径(像素，供尺寸比例校验)
   bool findCircleCenter(const cv::Mat & binary, const std::vector<cv::Point2f> & quad,
-    cv::Point2f & center);
+    cv::Point2f & center, double & radius);
+
+  // 计算4角重投影误差(像素平均)，用于剔除坏解
+  double reprojError(const std::vector<cv::Point3f> & obj_pts,
+    const std::vector<cv::Point2f> & img_pts,
+    const cv::Vec3d & rvec, const cv::Vec3d & tvec) const;
 
   // 把四边形 4 角排成 左上,右上,右下,左下
   static void orderCorners(std::vector<cv::Point2f> & quad);

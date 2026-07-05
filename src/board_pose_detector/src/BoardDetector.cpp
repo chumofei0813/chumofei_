@@ -95,7 +95,7 @@ bool BoardDetector::findBoardQuad(
 
 bool BoardDetector::findCircleCenter(
   const cv::Mat & binary, const std::vector<cv::Point2f> & quad,
-  cv::Point2f & center)
+  cv::Point2f & center, double & radius)
 {
   // 在方框内部找圆: 用方框四角构造掩膜，只在方框内部搜索圆轮廓
   cv::Point2f box_center(0.f, 0.f);
@@ -134,10 +134,26 @@ bool BoardDetector::findCircleCenter(
     if (score > best_score) {
       best_score = score;
       center = cen;
+      radius = std::sqrt(area / CV_PI);  // 等效半径(由面积反推)
       found = true;
     }
   }
   return found;
+}
+
+// 4角重投影误差(像素平均): 将3D点按解出的位姿投影回图像，与实测角点比对
+double BoardDetector::reprojError(
+  const std::vector<cv::Point3f> & obj_pts,
+  const std::vector<cv::Point2f> & img_pts,
+  const cv::Vec3d & rvec, const cv::Vec3d & tvec) const
+{
+  std::vector<cv::Point2f> proj;
+  cv::projectPoints(obj_pts, rvec, tvec, camera_matrix_, dist_coeffs_, proj);
+  double err = 0.0;
+  for (size_t i = 0; i < proj.size(); ++i) {
+    err += cv::norm(proj[i] - img_pts[i]);
+  }
+  return err / static_cast<double>(proj.size());
 }
 
 BoardResult BoardDetector::detect(const cv::Mat & bgr, cv::Mat * debug)
@@ -168,8 +184,22 @@ BoardResult BoardDetector::detect(const cv::Mat & bgr, cv::Mat * debug)
 
   // ---- 3. 找圆心 ----
   cv::Point2f center;
-  if (!findCircleCenter(binary, quad, center)) {
+  double circle_radius = 0.0;
+  if (!findCircleCenter(binary, quad, center, circle_radius)) {
     return result;  // 有方框但无圆，判定不是目标板
+  }
+
+  // ---- 3b. 尺寸比例校验(抗误检) ----
+  // 真目标板 圆直径/外框边长 ≈ 0.333。背景黑方块很难恰好满足此比例。
+  cv::RotatedRect box_rr = cv::minAreaRect(quad);
+  double box_side = 0.5 * (box_rr.size.width + box_rr.size.height);
+  if (box_side > 1e-3) {
+    double circle_ratio = (2.0 * circle_radius) / box_side;
+    if (circle_ratio < params_.circle_ratio_min ||
+      circle_ratio > params_.circle_ratio_max)
+    {
+      return result;  // 圆/方框比例不符，判为误检
+    }
   }
 
   result.corners = quad;
@@ -194,6 +224,20 @@ BoardResult BoardDetector::detect(const cv::Mat & bgr, cv::Mat * debug)
     rvec, tvec, false, cv::SOLVEPNP_ITERATIVE);
   if (!ok) {
     result.found = true;
+    return result;
+  }
+
+  // ---- 4b. 重投影误差筛选(抗跳解/误检) ----
+  // 坏解(翻转歧义、误检)的重投影误差会明显偏大，超阈值则本帧不输出位姿。
+  double reproj = reprojError(obj_pts, img_pts, rvec, tvec);
+  if (reproj > params_.max_reproj_error) {
+    result.found = true;   // 检测到板，但位姿不可信，不填 tvec
+    if (debug) {
+      char rb[64];
+      std::snprintf(rb, sizeof(rb), "reproj=%.1f REJECTED", reproj);
+      cv::putText(*debug, rb, {20, 40},
+        cv::FONT_HERSHEY_SIMPLEX, 0.7, {0, 0, 255}, 2);
+    }
     return result;
   }
 

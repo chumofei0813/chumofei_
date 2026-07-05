@@ -1,0 +1,21 @@
+# 目标板位姿解算节点参数
+# ============================================================================
+# 目标板: 黑色方框 + 中心黑圆(居中)
+# 尺寸来源: 尺子实测实物
+# ============================================================================
+/board_pose_node:
+  ros__parameters:
+    # ---- 目标板物理尺寸(mm)，尺子实测 ----
+    outer_size: 150.0        # 黑色方框外边长
+    inner_size: 115.0        # 白色区域内边长
+    circle_diameter: 50.0    # 中心圆直径
+
+    # ---- 检测参数 ----
+    use_otsu: true           # Otsu 自动阈值(优先)，光照变化时更稳
+    binary_thresh: 80        # use_otsu=false 时的固定灰度阈值
+    min_quad_squareness: 0.6 # 方框方正度下限(0~1，越大越严格)
+
+    # ---- 坐标系 & 输出 ----
+    camera_frame: "camera_optical_frame"
+    board_frame: "target_board"
+    publish_debug: true      # 发布 /board_pose/debug_image
